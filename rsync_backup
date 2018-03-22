@@ -2,12 +2,22 @@
 
 # source config
 OWN_DIR=$(dirname $(readlink -f $0))
-echo $OWN_DIR
-if [ ! -e $OWN_DIR/rsync_backup.config ]; then
+if [ ! -e $OWN_DIR/rsync_backup.conf ]; then
 	echo "no config file available."
 	exit 1
 fi
-source $OWN_DIR/rsync_backup.config
+source $OWN_DIR/rsync_backup.conf
+
+# get default values if variables are not set in config
+: ${RSYNC_BACKUP_SOURCE:=$HOME}
+: ${RSYNC_BACKUP_DAILYDIR:=daily}
+: ${RSYNC_BACKUP_WEEKLYDIR:=weekly}
+: ${RSYNC_BACKUP_MONTHLYDIR:=monthly}
+if [ -z $RSYNC_BACKUP_TARGET ]; then
+	echo "no target directory defined. Backup can't be performed"
+	exit 1
+fi
+
 includes="--include-from=$OWN_DIR/includes"
 excludes="--exclude-from=$OWN_DIR/excludes"
 options="-rav --progress"
@@ -62,9 +72,14 @@ if [ $# -ge 1 ]; then
 
 	if [ ! -z "$monthly" ]; then
 		echo "start montly backup..."
-		tar -cvzf $RSYNC_BACKUP_TARGET/$RSYNC_BACKUP_MONTHLYDIR/$(date +%Y%m%d*).tar.gz) \
+		if [ ! -d $RSYNC_BACKUP_TARGET/$RSYNC_BACKUP_MONTHLYDIR ]; then
+			mkdir -p $RSYNC_BACKUP_TARGET/$RSYNC_BACKUP_MONTHLYDIR
+		fi
+		# create tar from latest weekly backup
+		tar -cvzf $RSYNC_BACKUP_TARGET/$RSYNC_BACKUP_MONTHLYDIR/$(date +%Y%m%d).tar.gz \
 			$RSYNC_BACKUP_TARGET/$RSYNC_BACKUP_WEEKLYDIR/*
-		$_cmd
+		# clean up weeklydir
+		$cmd $cmd_args --delete $cmd_source_target/$RSYNC_BACKUP_WEEKLYDIR
 	fi
 fi
 
